@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coinathon Overlay</title>
+<style>
+  /* ---------- Transparent base (OBS Browser Source) ---------- */
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    background-color: transparent;
+    background-image: none;
+  }
+  /* Emergency chroma-key fallback (only if ever needed):
+     un-comment the next line, then use the OBS Chroma Key filter set to Green.
+     html, body { background: #00FF00; } */
+
+  /* ---------- Stage (designed for 1920x1080, scales with the source) ---------- */
+  .stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .line {
+    display: grid;
+    font-family: "Segoe UI Black", "Arial Black", "Segoe UI", "Trebuchet MS", Arial, sans-serif;
+    font-weight: 900;
+    font-size: min(6.4vw, 11.5vh);   /* ~123px at 1920x1080 */
+    line-height: 1;
+    letter-spacing: 0.02em;
+    user-select: none;
+    text-rendering: optimizeLegibility;
+  }
+  .layer {
+    grid-area: 1 / 1;
+    white-space: nowrap;
+  }
+
+  /* Two lines stacked and centered as one compact overlay */
+  .stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: min(0.5vw, 0.9vh);
+  }
+  /* Second line: same style, ~72% of the first line's size */
+  .line2 {
+    font-size: min(4.6vw, 8.3vh);
+  }
+  /* Offset the idle pulse and shimmer so the two lines breathe a little differently */
+  .line2 .glow { animation-delay: -1.3s; }
+  .line2 .shine .ch {
+    animation-delay: calc(2s + var(--i) * 0.04s), calc(1.2s + var(--i) * 0.09s);
+  }
+
+  /* One letter. Every layer has identical letters, so they spin together. */
+  .ch {
+    display: inline-block;
+    transform-origin: 50% 55%;
+    will-change: transform;
+    /* Spin every 8s: first spin 2s after load, 0.04s stagger per letter */
+    animation: spin 8s linear infinite;
+    animation-delay: calc(2s + var(--i) * 0.04s);
+  }
+  .sp {
+    display: inline-block;
+    width: 0.27em;
+  }
+
+  /* Space reserved for the coin (same size in every layer) */
+  .slot {
+    position: relative;
+    display: inline-block;
+    width: 1.25em;
+    height: 1.25em;
+    margin: 0 0.22em 0 0.14em;
+    vertical-align: -0.25em;
+  }
+
+  /* Quick 3D spin around the vertical axis, with a small "pop" for energy.
+     0.9s of motion, then rests until the next 8s cycle. */
+  @keyframes spin {
+    0%     { transform: perspective(700px) rotateY(0deg)   scale(1);    animation-timing-function: ease-in; }
+    5.6%   { transform: perspective(700px) rotateY(180deg) scale(1.16); animation-timing-function: ease-out; }
+    11.2%  { transform: perspective(700px) rotateY(360deg) scale(1); }
+    100%   { transform: perspective(700px) rotateY(360deg) scale(1); }
+  }
+
+  /* ---------- Layer 1: neon glow (idle pulse) ---------- */
+  .glow {
+    animation: pulse 2.6s ease-in-out infinite;
+    will-change: opacity;
+  }
+  .glow .ch {
+    color: #00e5ff;
+    text-shadow:
+      0 0 0.07em #00e5ff,
+      0 0 0.22em #00e5ff,
+      0 0 0.50em rgba(0, 229, 255, 0.85),
+      0 0 0.95em rgba(0, 229, 255, 0.50);
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 1; }
+  }
+
+  /* ---------- Layer 2: dark outline + 3D extrusion ---------- */
+  .body .ch {
+    color: #021018;
+    text-shadow:
+      /* extruded depth, light teal -> deep navy */
+      0.010em 0.010em 0 #11b8d2,
+      0.020em 0.020em 0 #0fa8c2,
+      0.030em 0.030em 0 #0d98b2,
+      0.040em 0.040em 0 #0b88a1,
+      0.050em 0.050em 0 #09788f,
+      0.060em 0.060em 0 #08687d,
+      0.070em 0.070em 0 #06586b,
+      0.080em 0.080em 0 #05495a,
+      0.090em 0.090em 0 #043b49,
+      0.100em 0.100em 0 #032d39,
+      0.110em 0.110em 0 #021f28,
+      /* smooth dark outline ring */
+      0.050em 0.000em 0 #021018,
+      0.043em 0.025em 0 #021018,
+      0.025em 0.043em 0 #021018,
+      0.000em 0.050em 0 #021018,
+     -0.025em 0.043em 0 #021018,
+     -0.043em 0.025em 0 #021018,
+     -0.050em 0.000em 0 #021018,
+     -0.043em -0.025em 0 #021018,
+     -0.025em -0.043em 0 #021018,
+      0.000em -0.050em 0 #021018,
+      0.025em -0.043em 0 #021018,
+      0.043em -0.025em 0 #021018,
+      /* soft contact shadow */
+      0.13em 0.15em 0.12em rgba(0, 0, 0, 0.6);
+  }
+
+  /* ---------- Layer 3: bright cyan face (polished gradient) ---------- */
+  .face .ch {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    background-image: linear-gradient(180deg,
+      #ffffff 12%, #c4fcff 32%, #2cefff 60%, #00c4e2 88%);
+    -webkit-background-clip: text;
+            background-clip: text;
+  }
+
+  /* ---------- Layer 4: shimmer sweeping letter by letter ---------- */
+  .shine .ch {
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    background-image: linear-gradient(100deg,
+      rgba(255, 255, 255, 0) 38%,
+      rgba(255, 255, 255, 0.97) 50%,
+      rgba(255, 255, 255, 0) 62%);
+    background-size: 300% 100%;
+    background-repeat: no-repeat;
+    background-position: 100% 0;
+    -webkit-background-clip: text;
+            background-clip: text;
+    animation-name: spin, shine;
+    animation-duration: 8s, 4s;
+    animation-timing-function: linear, linear;
+    animation-iteration-count: infinite, infinite;
+    animation-delay: calc(2s + var(--i) * 0.04s), calc(var(--i) * 0.09s);
+  }
+  @keyframes shine {
+    0%   { background-position: 100% 0; }
+    30%  { background-position: 0% 0; }
+    100% { background-position: 0% 0; }
+  }
+
+  /* ---------- 3D gold coin ---------- */
+  .persp {
+    position: absolute;
+    inset: 0;
+    perspective: 14em;
+    filter: drop-shadow(0 0.03em 0.05em rgba(0, 0, 0, 0.65))
+            drop-shadow(0 0 0.09em rgba(255, 190, 40, 0.35));
+  }
+  .tilt {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    transform: rotateX(-12deg);
+    /* extra turn + pop in time with the letter spin */
+    animation: kick 8s linear infinite;
+    animation-delay: calc(2s + var(--i) * 0.04s);
+  }
+  @keyframes kick {
+    0%     { transform: rotateX(-12deg) rotateY(0deg)   scale(1);    animation-timing-function: ease-in; }
+    5.6%   { transform: rotateX(-12deg) rotateY(180deg) scale(1.18); animation-timing-function: ease-out; }
+    11.2%  { transform: rotateX(-12deg) rotateY(360deg) scale(1); }
+    100%   { transform: rotateX(-12deg) rotateY(360deg) scale(1); }
+  }
+  .coin {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+    animation: coinspin 4s linear infinite;
+    will-change: transform;
+  }
+  @keyframes coinspin {
+    from { transform: rotateY(0deg); }
+    to   { transform: rotateY(360deg); }
+  }
+
+  .cface, .edge {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+  }
+  .front { transform: translateZ(0.07em); }
+  .back  { transform: rotateY(180deg) translateZ(0.07em); }
+
+  .cface {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    background: radial-gradient(circle at 32% 28%,
+      #fff6bf 0%, #fbdc66 20%, #e3aa22 48%, #a8730d 78%, #6e4700 100%);
+    box-shadow:
+      inset 0 0 0 0.02em #fff0a0,
+      inset 0 0 0.07em 0.02em rgba(60, 35, 0, 0.8);
+  }
+  .rim {
+    position: absolute;
+    inset: 0.05em;
+    border-radius: 50%;
+    background: repeating-conic-gradient(from 0deg,
+      rgba(90, 55, 0, 0.8) 0deg 2.2deg, rgba(0, 0, 0, 0) 2.2deg 6deg);
+    -webkit-mask-image: radial-gradient(circle closest-side, transparent 0 89%, #000 90% 100%);
+            mask-image: radial-gradient(circle closest-side, transparent 0 89%, #000 90% 100%);
+  }
+  .field {
+    position: absolute;
+    inset: 0.14em;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%,
+      #fff0a0 0%, #f5c73e 35%, #d09b1c 65%, #a06f0a 100%);
+    box-shadow:
+      inset 0.015em 0.02em 0.03em rgba(255, 255, 255, 0.8),
+      inset -0.02em -0.03em 0.045em rgba(70, 40, 0, 0.75),
+      0 0 0.01em 0.012em rgba(110, 70, 0, 0.6);
+  }
+  .field::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: repeating-conic-gradient(from 20deg,
+      rgba(255, 255, 255, 0.22) 0deg 8deg, rgba(0, 0, 0, 0.10) 8deg 16deg);
+  }
+  .field::after {
+    content: "";
+    position: absolute;
+    inset: 18%;
+    border-radius: 50%;
+    border: 0.012em solid rgba(110, 70, 0, 0.55);
+    box-shadow: 0.01em 0.01em 0 rgba(255, 240, 160, 0.65),
+                inset 0.01em 0.01em 0 rgba(255, 240, 160, 0.45);
+  }
+  .gloss {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: linear-gradient(115deg,
+      rgba(255, 255, 255, 0) 33%,
+      rgba(255, 255, 255, 0.95) 47%,
+      rgba(255, 255, 255, 0.12) 55%,
+      rgba(255, 255, 255, 0) 63%);
+    opacity: 0.3;
+    animation: gloss 4s linear infinite;
+  }
+  .back .gloss { animation-delay: -2s; }
+  @keyframes gloss {
+    0%   { opacity: 0.3; }
+    5%   { opacity: 0.95; }
+    25%  { opacity: 0; }
+    90%  { opacity: 0; }
+    97%  { opacity: 0.7; }
+    100% { opacity: 0.3; }
+  }
+  .edge {
+    background:
+      linear-gradient(180deg,
+        rgba(0, 0, 0, 0.60) 0%, rgba(0, 0, 0, 0) 26%,
+        rgba(255, 255, 255, 0.20) 50%,
+        rgba(0, 0, 0, 0) 74%, rgba(0, 0, 0, 0.60) 100%),
+      repeating-linear-gradient(180deg,
+        #5e3c00 0 0.016em, #f6cb52 0.016em 0.032em);
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="stack" id="stack"></div>
+</div>
+
+<script>
+  // Builds the letters (one span per letter, in 4 identical layers) and the 3D coin once.
+  // All motion afterwards is pure CSS, so there are no timers and nothing to leak.
+  (function () {
+    var stack = document.getElementById('stack');
+
+    function coinHTML() {
+      var face = '<i class="rim"></i><i class="field"></i><i class="gloss"></i>';
+      var edges = '';
+      for (var i = 0; i < 15; i++) {
+        edges += '<div class="edge" style="transform:translateZ(' + ((i - 7) * 0.01).toFixed(2) + 'em)"></div>';
+      }
+      return '<div class="persp"><div class="tilt"><div class="coin">' + edges +
+             '<div class="cface front">' + face + '</div>' +
+             '<div class="cface back">' + face + '</div></div></div></div>';
+    }
+
+    function buildLayer(line, parts, cls, withCoin) {
+      var layer = document.createElement('div');
+      layer.className = 'layer ' + cls;
+      layer.setAttribute('aria-hidden', 'true');
+      var idx = 0;
+      parts.forEach(function (part) {
+        if (part === null) {
+          var slot = document.createElement('i');
+          slot.className = 'slot';
+          slot.style.setProperty('--i', idx++);
+          if (withCoin) slot.innerHTML = coinHTML();
+          layer.appendChild(slot);
+          return;
+        }
+        Array.from(part).forEach(function (c) {
+          var s = document.createElement('span');
+          if (c === ' ') {
+            s.className = 'sp';
+          } else {
+            s.className = 'ch';
+            s.textContent = c;
+            s.style.setProperty('--i', idx);
+          }
+          idx++;
+          layer.appendChild(s);
+        });
+      });
+      line.appendChild(layer);
+    }
+
+    // parts: text pieces; null = where the coin goes
+    function createLine(parts, label, extraClass, withCoin) {
+      var line = document.createElement('div');
+      line.className = 'line' + (extraClass ? ' ' + extraClass : '');
+      line.setAttribute('role', 'img');
+      line.setAttribute('aria-label', label);
+      buildLayer(line, parts, 'glow',  false);
+      buildLayer(line, parts, 'body',  false);
+      buildLayer(line, parts, 'face',  withCoin);
+      buildLayer(line, parts, 'shine', false);
+      stack.appendChild(line);
+    }
+
+    createLine(['200 Coins', null, '= 1 Λεπτό'], '200 Coins = 1 Λεπτό', '', true);
+    createLine(['1 Follow = 3 Δευτερόλεπτα'], '1 Follow = 3 Δευτερόλεπτα', 'line2', false);
+  })();
+</script>
+</body>
+</html>
